@@ -13,7 +13,7 @@ A FastAPI-based To-Do List application with user authentication and task managem
 
 1. Clone the repository  
    ```bash
-    git clone <repository-url>
+    git clone https://github.com/JeonBeomGu-S/to-do-list.git
     cd toDoList
     ```
 2. Create and activate a virtual environment
