@@ -1,4 +1,7 @@
+from fastapi.security import OAuth2PasswordBearer
+from jwt import decode, PyJWTError
 from sqlalchemy.orm import Session
+from starlette import status
 from models.user import User
 from utils.security import hash_password, verify_password, create_access_token
 from fastapi import HTTPException
@@ -10,10 +13,12 @@ from dotenv import load_dotenv
 load_dotenv()
 
 ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES"))
+JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 def create_user(db: Session, user_data: UserCreate):
     print(user_data)
-    db_user = db.query(User).filter(User.email == user_data.email).first()
+    db_user = db.query(User).filter(user_data.email == User.email).first()
     if db_user:
         raise HTTPException(status_code=400, detail="This email has already registered")
 
@@ -43,3 +48,17 @@ def create_access_token_for_user(db: Session, user_data: UserLogin):
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(data={"sub": user.email}, expires_delta=access_token_expires)
     return access_token
+
+def get_current_user_id(db: Session, token: str = oauth2_scheme):
+    try:
+        payload = decode(token, JWT_SECRET_KEY, algorithms=["HS256"])
+        user_email = payload.get("sub")
+        if user_email is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+        user = db.query(User).filter(User.email == user_email).first()
+        if user is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    except PyJWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+
+    return user.id
